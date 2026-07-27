@@ -1,0 +1,18 @@
+# === Python Virtual Environment ===
+venv/
+env/
+
+# === Environment Configuration Secrets ===
+.env
+.env.local
+
+# === Python Cache Files ===
+__pycache__/
+*.pyc
+
+# === Local Databases ===
+db.sqlite3
+
+# === React Frontend Dependencies ===
+frontend/node_modules/
+frontend/dist/
