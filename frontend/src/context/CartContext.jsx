@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useReducer } from "react";
+import React, { createContext, useContext, useEffect, useReducer } from "react";
 
 export const CartContext = createContext();
+
+const BASE_URL = import.meta.env.VITE_DJANGO_BASE_URL || "http://127.0.0.1:8000";
 
 const initialState = {
   items: [],
@@ -8,74 +10,13 @@ const initialState = {
 
 function cartReducer(state, action) {
   switch (action.type) {
-    case "ADD_ITEM": {
-      const existingItem = state.items.find((item) => item.id === action.payload.id);
-
-      if (existingItem) {
-        return {
-          ...state,
-          items: state.items.map((item) =>
-            item.id === action.payload.id
-              ? { ...item, quantity: (item.quantity || 1) + 1 }
-              : item
-          ),
-        };
-      }
-
+    case "SET_CART":
       return {
         ...state,
-        items: [...state.items, { ...action.payload, quantity: 1 }],
+        items: action.payload || [],
       };
-    }
-    case "REMOVE_ITEM": {
-      const existingItem = state.items.find((item) => item.id === action.payload.id);
-
-      if (!existingItem) {
-        return state;
-      }
-
-      if ((existingItem.quantity || 1) === 1) {
-        return {
-          ...state,
-          items: state.items.filter((item) => item.id !== action.payload.id),
-        };
-      }
-
-      return {
-        ...state,
-        items: state.items.map((item) =>
-          item.id === action.payload.id
-            ? { ...item, quantity: (item.quantity || 1) - 1 }
-            : item
-        ),
-      };
-    }
     case "CLEAR_CART":
       return initialState;
-    case "UPDATE_ITEM": {
-      const existingItem = state.items.find((item) => item.id === action.payload.id);
-
-      if (!existingItem) {
-        return state;
-      }
-
-      const quantity = action.payload.quantity;
-      if (quantity <= 0) {
-        return {
-          ...state,
-          items: state.items.filter((item) => item.id !== action.payload.id),
-        };
-      }
-
-      return {
-        ...state,
-        items: state.items.map((item) =>
-          item.id === action.payload.id
-            ? { ...item, quantity }
-            : item
-        ),
-      };
-    }
     default:
       return state;
   }
@@ -84,16 +25,103 @@ function cartReducer(state, action) {
 export function CartProvider({ children }) {
   const [state, dispatch] = useReducer(cartReducer, initialState);
 
-  const addToCart = (item) => dispatch({ type: "ADD_ITEM", payload: item });
-  const removeFromCart = (item) => dispatch({ type: "REMOVE_ITEM", payload: item });
-  const updateCartItem = (id, quantity) => dispatch({ type: "UPDATE_ITEM", payload: { id, quantity } });
-  const clearCart = () => dispatch({ type: "CLEAR_CART" });
+  const setCart = (cartData) => {
+    dispatch({ type: "SET_CART", payload: cartData?.items || [] });
+  };
+
+  const fetchCart = async () => {
+    const response = await fetch(`${BASE_URL}/api/cart/`);
+    if (!response.ok) {
+      throw new Error("Unable to load cart");
+    }
+    const data = await response.json();
+    setCart(data);
+    return data;
+  };
+
+  const addToCart = async (productOrId) => {
+    const productId = typeof productOrId === 'object' ? productOrId.id : productOrId;
+    const response = await fetch(`${BASE_URL}/api/cart/add/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ product_id: productId }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to add item to cart');
+    }
+
+    const data = await response.json();
+    setCart(data.cart || data);
+    return data;
+  };
+
+  const removeFromCart = async (itemId) => {
+    const response = await fetch(`${BASE_URL}/api/cart/remove/${itemId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to remove item from cart');
+    }
+
+    const data = await response.json();
+    setCart(data.cart || data);
+    return data;
+  };
+
+  const updateCartItem = async (id, quantity) => {
+    const response = await fetch(`${BASE_URL}/api/cart/update/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ item_id: id, quantity }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to update cart item');
+    }
+
+    const data = await response.json();
+    setCart(data.cart || data);
+    return data;
+  };
+
+  const clearCart = async () => {
+    const response = await fetch(`${BASE_URL}/api/cart/clear/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to clear cart');
+    }
+
+    const data = await response.json();
+    setCart(data.cart || data);
+    return data;
+  };
+
+  useEffect(() => {
+    fetchCart().catch((error) => {
+      console.error(error);
+    });
+  }, []);
 
   return (
     <CartContext.Provider
       value={{
         cart: state.items,
         cartItems: state.items,
+        fetchCart,
         addToCart,
         addItem: addToCart,
         removeFromCart,
