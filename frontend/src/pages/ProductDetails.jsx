@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useCart } from "../context/CartContext";
 
 function ProductDetails() {
     const { id } = useParams();
@@ -7,6 +8,7 @@ function ProductDetails() {
     const BASE_URL = import.meta.env.VITE_DJANGO_BASE_URL || "http://127.0.0.1:8000";
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const {addToCart} = useCart();
 
     const getImageUrl = (image) => {
         if (!image) {
@@ -66,7 +68,10 @@ function ProductDetails() {
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">{product?.name || "Unnamed product"}</h1>
                         <p className="text-xl text-gray-600 font-semibold mb-4">{product?.description || "No description available."}</p>
                         <p className="text-2xl font-semibold text-gray-600 mb-6">${Number.isFinite(priceValue) ? priceValue.toFixed(2) : "0.00"}</p>
-                        <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                        <button 
+                            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
+                            onClick={() => addToCart(product)}
+                        >
                             Add to Cart
                         </button>
                         {/* Home Button */}
